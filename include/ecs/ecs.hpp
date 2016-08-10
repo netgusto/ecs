@@ -15,6 +15,7 @@
 #ifndef ecs_ecs_hpp
 #define ecs_ecs_hpp
 
+#include <cassert>
 #include <cstring>
 #include <vector>
 #include <bitset>
@@ -407,7 +408,7 @@ namespace ecs {
             }
 
             template <typename T>
-            auto matchesSignature(EntityIndex mI) const noexcept {
+            auto inline matchesSignature(EntityIndex mI) const noexcept {
                 static_assert(Settings::template isSignature<T>(), "");
 
                 const auto& entityBitset(getEntity(mI).bitset);
@@ -417,7 +418,7 @@ namespace ecs {
             }
 
             template <typename TF>
-            void forEntities(TF&& mFunction) {
+            void inline forEntities(TF&& mFunction) {
                 for(EntityIndex i{0}; i < size; ++i) mFunction(i);
             }
 
@@ -428,6 +429,21 @@ namespace ecs {
                 forEntities([this, &mFunction](auto i) {
                     if(matchesSignature<T>(i)) expandSignatureCall<T>(i, mFunction);
                 });
+            }
+        
+            template <typename T>
+            std::vector<EntityIndex> entitiesMatching() {
+                static_assert(Settings::template isSignature<T>(), "");
+                
+                std::vector<EntityIndex> res{};
+
+                for(EntityIndex i{0}; i < size; ++i) {
+                    if(matchesSignature<T>(i)) {
+                        res.emplace_back(i);
+                    }
+                }
+                
+                return std::forward<std::vector<EntityIndex>>(res);
             }
 
             auto getEntityCount() const noexcept { return size; }
