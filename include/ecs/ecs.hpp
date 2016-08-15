@@ -19,6 +19,7 @@
 #include <cstring>
 #include <vector>
 #include <bitset>
+#include <iostream>
 
 #include "./MPL/MPL.hpp"
 
@@ -237,11 +238,20 @@ namespace ecs {
 
     template <typename TSettings>
     class Manager {
+        
+        private:
+            std::function<void(ecs::EntityIndex)>* onspawn;
+            std::function<void(ecs::EntityIndex)>* onkill;
+        
+            std::vector<ecs::EntityIndex> spawnedthiscycle;
+            std::vector<ecs::EntityIndex> killedthiscycle;
 
         public:
             using Handle = Impl::Handle;
 
-            Manager() { growTo(100); }
+            Manager(std::function<void(ecs::EntityIndex)>* onspawn, std::function<void(ecs::EntityIndex)>* onkill) : onspawn(onspawn), onkill(onkill) {
+                growTo(100);
+            }
 
             auto isHandleValid(const Handle& mX) const noexcept {
                 return mX.counter == getHandleData(mX).counter;
@@ -260,7 +270,12 @@ namespace ecs {
                 return isAlive(getEntityIndex(mX));
             }
 
-            void kill(EntityIndex mI) noexcept { getEntity(mI).alive = false; }
+            void kill(EntityIndex mI) noexcept {
+                getEntity(mI).alive = false;
+                //onkill(mI);
+                killedthiscycle.push_back(mI);
+            }
+
             void kill(const Handle& mX) noexcept { kill(getEntityIndex(mX)); }
 
             template <typename T>
@@ -315,14 +330,14 @@ namespace ecs {
                 e.bitset[Settings::template componentBit<T>()] = true;
 
                 auto& c(components.template getComponent<T>(e.dataIndex));
-                new(&c) T(FWD(mXs)...);
+                new(&c) T(MPL_FWD(mXs)...);
 
                 return c;
             }
 
             template <typename T, typename... TArgs>
             auto& addComponent(const Handle& mX, TArgs&&... mXs) noexcept {
-                return addComponent<T>(getEntityIndex(mX), FWD(mXs)...);
+                return addComponent<T>(getEntityIndex(mX), MPL_FWD(mXs)...);
             }
 
             template <typename T>
@@ -358,6 +373,8 @@ namespace ecs {
                 auto& e(entities[freeIndex]);
                 e.alive = true;
                 e.bitset.reset();
+                
+                spawnedthiscycle.push_back(freeIndex);
 
                 return freeIndex;
             }
@@ -398,6 +415,12 @@ namespace ecs {
             }
 
             void refresh() noexcept {
+                
+                for(auto& sp: spawnedthiscycle) { (*onspawn)(sp); }
+                for(auto& kl: killedthiscycle) { (*onkill)(kl); }
+                
+                spawnedthiscycle.clear();
+                killedthiscycle.clear();
 
                 if(sizeNext == 0) {
                     size = 0;
@@ -512,6 +535,7 @@ namespace ecs {
             }
 
             const auto& getEntity(EntityIndex mI) const noexcept {
+                std::cout << sizeNext << std::endl;
                 assert(sizeNext > mI);
                 return entities[mI];
             }
