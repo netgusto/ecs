@@ -315,14 +315,15 @@ namespace ecs {
                 e.bitset[Settings::template componentBit<T>()] = true;
 
                 auto& c(components.template getComponent<T>(e.dataIndex));
-                new(&c) T(FWD(mXs)...);
+                new(&c) T(MPL_FWD(mXs)...);
+                //new(&c) T(::std::forward<decltype(mXs)...>(mXs)...);
 
                 return c;
             }
 
             template <typename T, typename... TArgs>
             auto& addComponent(const Handle& mX, TArgs&&... mXs) noexcept {
-                return addComponent<T>(getEntityIndex(mX), FWD(mXs)...);
+                return addComponent<T>(getEntityIndex(mX), MPL_FWD(mXs)...);
             }
 
             template <typename T>
